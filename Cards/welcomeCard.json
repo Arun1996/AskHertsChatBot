@@ -1,0 +1,46 @@
+{
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.0",
+  "body": [
+    {
+      "type": "Image",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/1/11/University_of_Hertfordshire_Logo.svg",
+      "size": "stretch"
+    },
+    {
+      "type": "TextBlock",
+      "spacing": "medium",
+      "size": "default",
+      "weight": "bolder",
+      "text": "Welcome to AskHets Chatbot!",
+      "wrap": true,
+      "maxLines": 0
+    },
+    {
+      "type": "TextBlock",
+      "size": "default",
+      "isSubtle": true,
+      "text": "Click on the links below to know about university of Hertfordshire",
+      "wrap": true,
+      "maxLines": 0
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.OpenUrl",
+      "title": "Get an overview",
+      "url": "https://www.herts.ac.uk/about-us/the-history-of-our-university"
+    },
+    {
+      "type": "Action.OpenUrl",
+      "title": "Our Courses",
+      "url": "https://www.herts.ac.uk/courses"
+    },
+    {
+      "type": "Action.OpenUrl",
+      "title": "Contact Us",
+      "url": "https://www.herts.ac.uk/contact-us"
+    }
+  ]
+}
