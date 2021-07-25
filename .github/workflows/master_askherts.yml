@@ -26,7 +26,7 @@ jobs:
       run: dotnet build ./CoreBot.sln --configuration Release
 
     - name: dotnet publish
-      run:  dotnet publish CoreBot.sln -c Release -o out
+      run:  dotnet publish CoreBot.sln -c Release -o ${{env.DOTNET_ROOT}}/myapp
 
 
     - name: Upload artifact for deployment job
