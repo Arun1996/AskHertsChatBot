@@ -8,4 +8,4 @@ runtimes/**
 publish.cmd
 packages/
 .vs/
-appsettings.json
+.*appsettings.json

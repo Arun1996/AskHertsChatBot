@@ -14,7 +14,8 @@ namespace Microsoft.BotBuilderSamples.Dialogs
     public class AppointmentDialog : CancelAndHelpDialog
     {
         private const string StudentIdStepMsgText = "Please enter your student ID?";
-        private const string PurposeStepMsgText = "What is the purpose of the appointment?";
+        private const string PurposeStepMsgText = "What is the purpose of appointment?";
+        private const string ProffStepMsgText = "Who would you like to have the appointment with?";
 
         public AppointmentDialog()
             : base(nameof(AppointmentDialog))
@@ -26,6 +27,7 @@ namespace Microsoft.BotBuilderSamples.Dialogs
             {
                 StudentIdStepAsync,
                 PurposeStepAsync,
+                ApptProfAsync,
                 ApptDateStepAsync,
                 ConfirmStepAsync,
                 FinalStepAsync,
@@ -70,10 +72,24 @@ namespace Microsoft.BotBuilderSamples.Dialogs
             return await stepContext.NextAsync(AppointmentDt.purpose, cancellationToken);
         }
 
-        private async Task<DialogTurnResult> ApptDateStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        private async Task<DialogTurnResult> ApptProfAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             var AppointmentDt = (Appointment)stepContext.Options;
             AppointmentDt.purpose = (string)stepContext.Result;
+
+            if (AppointmentDt.professor == null)
+            {
+                var promptMessage = MessageFactory.Text(ProffStepMsgText, ProffStepMsgText, InputHints.ExpectingInput);
+                return await stepContext.PromptAsync(nameof(TextPrompt), new PromptOptions { Prompt = promptMessage }, cancellationToken);
+            }
+
+            return await stepContext.NextAsync(AppointmentDt.professor, cancellationToken);
+        }
+
+        private async Task<DialogTurnResult> ApptDateStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        {
+            var AppointmentDt = (Appointment)stepContext.Options;
+            AppointmentDt.professor = (string)stepContext.Result;
 
             if (AppointmentDt.Date == null || IsAmbiguous(AppointmentDt.Date))
             {

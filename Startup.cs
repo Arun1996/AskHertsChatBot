@@ -35,13 +35,16 @@ namespace Microsoft.BotBuilderSamples
             services.AddSingleton<BotService>();
 
             // Create the bot services (LUIS, QnA) as a singleton.
-            services.AddSingleton<IBotServices, BotService>();
+            //services.AddSingleton<IBotServices, BotService>();
 
             // Register the BookingDialog.
             services.AddSingleton<BookingDialog>();
 
             // Register the AppointmentDialog.
             services.AddSingleton<AppointmentDialog>();
+
+            // Register the StudentLetterDialog.
+            services.AddSingleton<StudentLetterDialog>();
 
             // The MainDialog that will be run by the bot.
             services.AddSingleton<MainDialog>();

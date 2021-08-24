@@ -21,6 +21,7 @@ using System.Text;
 using System.Net.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Bot.Builder.AI.QnA.Dialogs;
+using System.IO;
 
 namespace Microsoft.BotBuilderSamples.Dialogs
 {
@@ -71,7 +72,7 @@ namespace Microsoft.BotBuilderSamples.Dialogs
         private bool QnAFlag=false;
 
         // Dependency injection uses this constructor to instantiate MainDialog
-        public MainDialog(BotService luisRecognizer, AppointmentDialog appointmentDialog, IBotServices services, IConfiguration configuration, ILogger<MainDialog> logger)
+        public MainDialog(BotService luisRecognizer, AppointmentDialog appointmentDialog, StudentLetterDialog studentLetterDialog, IConfiguration configuration, ILogger<MainDialog> logger)
             : base(nameof(MainDialog))
         {
             _luisRecognizer = luisRecognizer;
@@ -79,7 +80,8 @@ namespace Microsoft.BotBuilderSamples.Dialogs
 
             AddDialog(new TextPrompt(nameof(TextPrompt)));
             AddDialog(appointmentDialog);
-            AddDialog(new QnAMakerBaseDialog(luisRecognizer, configuration));
+            AddDialog(studentLetterDialog);
+            //AddDialog(new QnAMakerBaseDialog(luisRecognizer, configuration));
             AddDialog(new WaterfallDialog(nameof(WaterfallDialog), new WaterfallStep[]
             {
                 IntroStepAsync,
@@ -169,10 +171,11 @@ namespace Microsoft.BotBuilderSamples.Dialogs
                     break;
 
                 case AskHerts.Intent.StudentLetter:
-                    // We haven't implemented the GetWeatherDialog so we just display a TODO message.
-                    getWeatherMessageText = "StudentLetter";
-                    getWeatherMessage = MessageFactory.Text(getWeatherMessageText, getWeatherMessageText, InputHints.IgnoringInput);
-                    await stepContext.Context.SendActivityAsync(getWeatherMessage, cancellationToken);
+
+                    //getWeatherMessageText = "StudentLetter";
+                    //getWeatherMessage = MessageFactory.Text(getWeatherMessageText, getWeatherMessageText, InputHints.IgnoringInput);
+                    //await stepContext.Context.SendActivityAsync(getWeatherMessage, cancellationToken);
+                    //return await stepContext.BeginDialogAsync(nameof(StudentLetterDialog), null, cancellationToken);
                     break;
 
                 case AskHerts.Intent.QnA:
@@ -228,11 +231,19 @@ namespace Microsoft.BotBuilderSamples.Dialogs
                 // Now we have all the booking details call the booking service.
 
                 // If the call to the booking service was successful tell the user.
+                var parsedAppDate = DateTime.Parse(result.Date);
+                
 
                 var timeProperty = new TimexProperty(result.Date);
                 var ApptDateMsg = timeProperty.ToNaturalLanguage(DateTime.Now);
                 var messageText = $"I have you booked {result.purpose} with {result.professor} on {ApptDateMsg}";
                 var message = MessageFactory.Text(messageText, messageText, InputHints.IgnoringInput);
+                if (DateTime.Parse(result.Date) < DateTime.Now)
+                {
+                    messageText = $"Cannot book an appointment in a past date, please verify your appointment date: {result.Date} ";
+                    message = MessageFactory.Text(messageText, messageText, InputHints.IgnoringInput);
+                }
+               
                 await stepContext.Context.SendActivityAsync(message, cancellationToken);
             }
 
@@ -248,9 +259,29 @@ namespace Microsoft.BotBuilderSamples.Dialogs
 
             if (queryResults.Any())
             {
+                // initialize reply message containing the default answer
+                Activity reply = ((Activity)stepContext.Context.Activity).CreateReply();
+
+                string[] qnaAnsData = queryResults[0].Answer.Split(';');
+                int dataLen = qnaAnsData.Length;
+
+                if(dataLen > 1)
+                {
+                    reply.Attachments.Add(GetVideoCard(qnaAnsData).ToAttachment());
+                }
+                else
+                {
+                    reply = MessageFactory.Text(queryResults[0].Answer);
+                }
+
                 var followUpCheckHttpClient = new HttpClient();
-                followUpCheckHttpClient.DefaultRequestHeaders.Add("Authorization", "6c076096-5a49-4057-b175-4837c307deaf");
-                var url = $"{"https://askhertsqna1.azurewebsites.net/qnamaker"}/knowledgebases/{"5c55797f-0872-441c-9686-854d99bcaa2d"}/generateAnswer";
+
+                //student account
+                followUpCheckHttpClient.DefaultRequestHeaders.Add("Authorization", "cdce7a88-b4e5-4c54-937d-89255a4ad065");
+                var url = $"{"https://askhertsqna1.azurewebsites.net/qnamaker"}/knowledgebases/{"2e1298b3-776b-43ba-b192-940df8f0f142"}/generateAnswer";
+
+                //followUpCheckHttpClient.DefaultRequestHeaders.Add("Authorization", "e00d005a-34f4-4980-9216-35955f1912f1");
+                //var url = $"{"https://askhertsqna.azurewebsites.net/qnamaker"}/knowledgebases/{"f59dca89-2781-4c5a-8d8c-1dc6740384ef"}/generateAnswer";
 
                 // post query
                 var checkFollowUpJsonResponse = await followUpCheckHttpClient.PostAsync(url, new StringContent("{\"question\":\"" + stepContext.Context.Activity.Text + "\"}", Encoding.UTF8, "application/json")).Result.Content.ReadAsStringAsync();
@@ -258,8 +289,7 @@ namespace Microsoft.BotBuilderSamples.Dialogs
                 // parse result
                 var followUpCheckResult = JsonConvert.DeserializeObject<FollowUpCheckResult>(checkFollowUpJsonResponse);
 
-                // initialize reply message containing the default answer
-                var reply = MessageFactory.Text(queryResults[0].Answer);
+                
 
                 if (followUpCheckResult.Answers.Length > 0 && followUpCheckResult.Answers[0].Context.Prompts.Length > 0)
                 {
@@ -281,5 +311,39 @@ namespace Microsoft.BotBuilderSamples.Dialogs
             }
 
         }
+
+        public static VideoCard GetVideoCard(string[] cardBody)
+        {
+            var videoCard = new VideoCard
+            {
+                Title = cardBody[0],
+                Subtitle = cardBody[1],
+                Text = cardBody[2],
+                Image = new ThumbnailUrl
+                {
+                    Url = cardBody[3],
+                },
+                Media = new List<MediaUrl>
+                {
+                    new MediaUrl()
+                    {
+                        Url = cardBody[5],
+                    },
+                },
+                Buttons = new List<CardAction>
+                {
+                    new CardAction()
+                    {
+                        Title = "Learn More",
+                        Type = ActionTypes.OpenUrl,
+                        Value = cardBody[4],
+                    },
+                },
+            };
+
+            return videoCard;
+        }
+
+        
     }
 }

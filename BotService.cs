@@ -10,7 +10,7 @@ using Microsoft.Extensions.Configuration;
 
 namespace Microsoft.BotBuilderSamples
 {
-    public class BotService : IRecognizer, IBotServices
+    public class BotService : IRecognizer
     {
         private readonly LuisRecognizer _recognizer;
 
