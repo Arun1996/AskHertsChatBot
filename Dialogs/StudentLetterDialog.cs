@@ -29,9 +29,9 @@ namespace Microsoft.BotBuilderSamples.Dialogs
             AddDialog(new WaterfallDialog(nameof(WaterfallDialog), new WaterfallStep[]
             {
                 GetInfoStepAsync,
-                PurposeStepAsync,
+                LetterTypeStepAsync,
                 ConfirmStepAsync,
-                FinalStepAsync,
+                FinalStepAsync
             }));
 
             // The initial child Dialog to run.
@@ -40,39 +40,61 @@ namespace Microsoft.BotBuilderSamples.Dialogs
 
         private async Task<DialogTurnResult> GetInfoStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-            var cardResourcePath = "CoreBot.Cards.studentLetterCard.json";
-            var studentLetterCard = CreateAdaptiveCardAttachment(cardResourcePath);
 
-            var opts = new PromptOptions
+            var StudentLetterDt = (StudentLetter)stepContext.Options;
+
+            if (StudentLetterDt.studentId == null)
             {
-                Prompt = new Activity
-                {
-                    Attachments = new List<Attachment>() {
-                     studentLetterCard
-                    },
-                    Type = ActivityTypes.Message,
-                    Text = "Please fill this form",
-                }
-            };
+                var promptMessage = MessageFactory.Text(StudentIdStepMsgText, StudentIdStepMsgText, InputHints.ExpectingInput);
+                return await stepContext.PromptAsync(nameof(TextPrompt), new PromptOptions { Prompt = promptMessage }, cancellationToken);
+            }
 
-            return await stepContext.PromptAsync(InitialDialogId, opts, cancellationToken);
+            return await stepContext.NextAsync(StudentLetterDt.studentId, cancellationToken);
+
         }
 
-        private async Task<DialogTurnResult> PurposeStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        private async Task<DialogTurnResult> LetterTypeStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-            var txt = stepContext.Context.Activity.Text;
-            dynamic val = stepContext.Context.Activity.Value;
-            var a = 1;
+            var StudentLetterDt = (StudentLetter)stepContext.Options;
+            StudentLetterDt.studentId = (string)stepContext.Result;
 
-            return await stepContext.NextAsync(null, cancellationToken);
+            //var reply = MessageFactory.Text("What type of letter do you want?");
+
+            //reply.SuggestedActions = new SuggestedActions()
+            //{
+            //    Actions = new List<CardAction>()
+            //    {
+            //        new CardAction() { Title = "Bank Letter", Type = ActionTypes.ImBack, Value = "Bank Letter"},
+            //        new CardAction() { Title = "Student status Letter", Type = ActionTypes.ImBack, Value = "Student status Letter"},
+            //    },
+            //};
+            var card = new HeroCard
+            {
+                Text = "What type of letter do you want?",
+                Buttons = new List<CardAction>
+                {
+                    new CardAction(ActionTypes.ImBack, title: "1. Bank Letter", value: "Bank Letter"),
+                    new CardAction(ActionTypes.ImBack, title: "2. Student status Letter", value: "Student status Letter"),
+                },
+            };
+
+            var reply = MessageFactory.Attachment(card.ToAttachment());
+
+            if (StudentLetterDt.type == null)
+            {
+                //var promptMessage = MessageFactory.Text(reply, reply, InputHints.ExpectingInput);
+                return await stepContext.PromptAsync(nameof(TextPrompt), new PromptOptions { Prompt = (Activity)reply }, cancellationToken);
+            }
+
+            return await stepContext.NextAsync(StudentLetterDt.type, cancellationToken);
         }
 
         private async Task<DialogTurnResult> ConfirmStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-            var AppointmentDt = (Appointment)stepContext.Options;
-            AppointmentDt.Date = (string)stepContext.Result;
+            var StudentLetterDt = (StudentLetter)stepContext.Options;
+            StudentLetterDt.type = (string)stepContext.Result;
 
-            var messageText = $"Please confirm, Booking {AppointmentDt.purpose} with {AppointmentDt.professor} on: {AppointmentDt.Date}. Is this correct?";
+            var messageText = $"Please confirm, You need a {StudentLetterDt.type}";
             var promptMessage = MessageFactory.Text(messageText, messageText, InputHints.ExpectingInput);
 
             return await stepContext.PromptAsync(nameof(ConfirmPrompt), new PromptOptions { Prompt = promptMessage }, cancellationToken);
@@ -82,29 +104,11 @@ namespace Microsoft.BotBuilderSamples.Dialogs
         {
             if ((bool)stepContext.Result)
             {
-                var AppointmentDt = (Appointment)stepContext.Options;
-
-                return await stepContext.EndDialogAsync(AppointmentDt, cancellationToken);
+                var StudentLetterDt = (StudentLetter)stepContext.Options;
+                return await stepContext.EndDialogAsync(StudentLetterDt, cancellationToken);
             }
 
             return await stepContext.EndDialogAsync(null, cancellationToken);
-        }
-
-        private Attachment CreateAdaptiveCardAttachment(string cardResourcePath)
-        {
-
-            using (var stream = GetType().Assembly.GetManifestResourceStream(cardResourcePath))
-            {
-                using (var reader = new StreamReader(stream))
-                {
-                    var adaptiveCard = reader.ReadToEnd();
-                    return new Attachment()
-                    {
-                        ContentType = "application/vnd.microsoft.card.adaptive",
-                        Content = JsonConvert.DeserializeObject(adaptiveCard),
-                    };
-                }
-            }
         }
 
 

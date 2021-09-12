@@ -22,6 +22,7 @@ using System.Net.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Bot.Builder.AI.QnA.Dialogs;
 using System.IO;
+using CoreBot;
 
 namespace Microsoft.BotBuilderSamples.Dialogs
 {
@@ -71,12 +72,18 @@ namespace Microsoft.BotBuilderSamples.Dialogs
         protected readonly ILogger Logger;
         private bool QnAFlag=false;
 
+        private BotState _conversationState;
+        private BotState _userState;
+
         // Dependency injection uses this constructor to instantiate MainDialog
-        public MainDialog(BotService luisRecognizer, AppointmentDialog appointmentDialog, StudentLetterDialog studentLetterDialog, IConfiguration configuration, ILogger<MainDialog> logger)
+        public MainDialog(BotService luisRecognizer, AppointmentDialog appointmentDialog, StudentLetterDialog studentLetterDialog, IConfiguration configuration, UserState userState, ConversationState conversationState, ILogger<MainDialog> logger)
             : base(nameof(MainDialog))
         {
             _luisRecognizer = luisRecognizer;
             Logger = logger;
+
+            _conversationState = conversationState;
+            _userState = userState;
 
             AddDialog(new TextPrompt(nameof(TextPrompt)));
             AddDialog(appointmentDialog);
@@ -103,16 +110,11 @@ namespace Microsoft.BotBuilderSamples.Dialogs
                 return await stepContext.NextAsync(null, cancellationToken);
             }
 
-            // Use the text provided in FinalStepAsync or the default if it is the first time.
-            //var weekLaterDate = DateTime.Now.AddDays(7).ToString("MMMM d, yyyy");
-            //var messageText = stepContext.Options?.ToString() ?? $"What can I help you with today?\nSay something like \"Book a flight from Paris to Berlin on {weekLaterDate}\"";
-            //var promptMessage = MessageFactory.Text(messageText, messageText, InputHints.ExpectingInput);
-
             if (!QnAFlag)
             {
                 // Use the text provided in FinalStepAsync or the default if it is the first time.
                 var weekLaterDate = DateTime.Now.AddDays(7).ToString("MMMM d, yyyy");
-                var messageText = stepContext.Options?.ToString() ?? $"What can I help you with today?";
+                var messageText = stepContext.Options?.ToString() ?? $"I am AskHerts Bot, to start converstion say Hi?";
                 var promptMessage = MessageFactory.Text(messageText, messageText, InputHints.ExpectingInput);
                 return await stepContext.PromptAsync(nameof(TextPrompt), new PromptOptions { Prompt = promptMessage }, cancellationToken);
             }
@@ -156,6 +158,7 @@ namespace Microsoft.BotBuilderSamples.Dialogs
                     var AppointmentDt = new Appointment()
                     {
                         studentId = null,
+                        email = null,
                         professor = luisResult.Entities?._instance?.professor?.FirstOrDefault().Text.ToString(),
                         purpose = luisResult.Entities?._instance?.purpose?.FirstOrDefault().Text.ToString(),
                         Date = luisResult.Entities.datetime?.FirstOrDefault()?.Expressions.FirstOrDefault()?.Split('T')[0]
@@ -175,8 +178,12 @@ namespace Microsoft.BotBuilderSamples.Dialogs
                     //getWeatherMessageText = "StudentLetter";
                     //getWeatherMessage = MessageFactory.Text(getWeatherMessageText, getWeatherMessageText, InputHints.IgnoringInput);
                     //await stepContext.Context.SendActivityAsync(getWeatherMessage, cancellationToken);
-                    //return await stepContext.BeginDialogAsync(nameof(StudentLetterDialog), null, cancellationToken);
-                    break;
+                    var StudentLetter = new StudentLetter()
+                    {
+                        studentId = null,
+                        type = luisResult.Entities?._instance?.letter_type?.FirstOrDefault().Text.ToString()
+                    };
+                    return await stepContext.BeginDialogAsync(nameof(StudentLetterDialog), StudentLetter, cancellationToken);
 
                 case AskHerts.Intent.QnA:
                     QnAFlag = true;
@@ -226,6 +233,11 @@ namespace Microsoft.BotBuilderSamples.Dialogs
         {
             // If the child dialog ("BookingDialog") was cancelled, the user failed to confirm or if the intent wasn't BookFlight
             // the Result here will be null.
+
+            var conversationStateAccessors = _conversationState.CreateProperty<ConversationData>(nameof(ConversationData));
+            var userStateAccessors = _userState.CreateProperty<UserProfile>(nameof(UserProfile));
+            var userProfile = await userStateAccessors.GetAsync(stepContext.Context, () => new UserProfile());
+
             if (stepContext.Result is Appointment result)
             {
                 // Now we have all the booking details call the booking service.
@@ -246,9 +258,16 @@ namespace Microsoft.BotBuilderSamples.Dialogs
                
                 await stepContext.Context.SendActivityAsync(message, cancellationToken);
             }
+            else if (stepContext.Result is StudentLetter StudentLetterDt)
+            {
+                var messageText = $"I have send you {StudentLetterDt.type} on university email.";
+                var message = MessageFactory.Text(messageText, messageText, InputHints.IgnoringInput);
+                await stepContext.Context.SendActivityAsync(message, cancellationToken);
 
-            // Restart the main dialog with a different message the second time around
-            var promptMessage = "What else can I do for you?";
+            }
+
+                // Restart the main dialog with a different message the second time around
+                var promptMessage = $"What else can I do for you  {userProfile.Name}?";
             return await stepContext.ReplaceDialogAsync(InitialDialogId, promptMessage, cancellationToken);
 
         }

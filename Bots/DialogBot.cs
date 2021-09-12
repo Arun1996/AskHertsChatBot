@@ -3,6 +3,7 @@
 
 using System.Threading;
 using System.Threading.Tasks;
+using CoreBot;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Schema;
@@ -42,10 +43,43 @@ namespace Microsoft.BotBuilderSamples.Bots
 
         protected override async Task OnMessageActivityAsync(ITurnContext<IMessageActivity> turnContext, CancellationToken cancellationToken)
         {
-            Logger.LogInformation("Running dialog with Message Activity.");
+            // Get the state properties from the turn context.
 
-            // Run the Dialog with the new message Activity.
-            await Dialog.RunAsync(turnContext, ConversationState.CreateProperty<DialogState>("DialogState"), cancellationToken);
+            var conversationStateAccessors = ConversationState.CreateProperty<ConversationData>(nameof(ConversationData));
+            var conversationData = await conversationStateAccessors.GetAsync(turnContext, () => new ConversationData());
+
+            var userStateAccessors = UserState.CreateProperty<UserProfile>(nameof(UserProfile));
+            var userProfile = await userStateAccessors.GetAsync(turnContext, () => new UserProfile());
+            Logger.LogInformation("Running dialog with Message Activity.");
+            if (string.IsNullOrEmpty(userProfile.Name))
+            {
+                // First time around this is set to false, so we will prompt user for name.
+                if (conversationData.PromptedUserForName)
+                {
+                    // Set the name to what the user provided.
+                    userProfile.Name = turnContext.Activity.Text?.Trim();
+
+                    // Acknowledge that we got their name.
+                    await turnContext.SendActivityAsync($"Hello {userProfile.Name}. What can I do for you?");
+
+                    // Reset the flag to allow the bot to go through the cycle again.
+                    conversationData.PromptedUserForName = false;
+                }
+                else
+                {
+                    // Prompt the user for their name.
+                    await turnContext.SendActivityAsync($"What is your name?");
+
+                    // Set the flag to true, so we don't prompt in the next turn.
+                    conversationData.PromptedUserForName = true;
+                }
+            }
+            else
+            {
+
+                // Run the Dialog with the new message Activity.
+                await Dialog.RunAsync(turnContext, ConversationState.CreateProperty<DialogState>("DialogState"), cancellationToken);
+            }
         }
     }
 }

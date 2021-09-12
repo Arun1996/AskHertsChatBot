@@ -1,9 +1,13 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+using System;
+using System.Net;
+using System.Net.Mail;
 using System.Threading;
 using System.Threading.Tasks;
 using CoreBot.Models;
+using CoreBot.Services;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Schema;
@@ -14,23 +18,29 @@ namespace Microsoft.BotBuilderSamples.Dialogs
     public class AppointmentDialog : CancelAndHelpDialog
     {
         private const string StudentIdStepMsgText = "Please enter your student ID?";
+        private const string StudentEmailStepMsgText = "Please enter your student Email?";
         private const string PurposeStepMsgText = "What is the purpose of appointment?";
         private const string ProffStepMsgText = "Who would you like to have the appointment with?";
 
-        public AppointmentDialog()
+        private readonly ExternalServices _externalServices;
+
+       public AppointmentDialog(ExternalServices externalServices)
             : base(nameof(AppointmentDialog))
         {
+            _externalServices = externalServices;
+
             AddDialog(new TextPrompt(nameof(TextPrompt)));
             AddDialog(new ConfirmPrompt(nameof(ConfirmPrompt)));
             AddDialog(new DateResolverDialog());
             AddDialog(new WaterfallDialog(nameof(WaterfallDialog), new WaterfallStep[]
             {
                 StudentIdStepAsync,
+                StudentEmailStepAsync,
                 PurposeStepAsync,
                 ApptProfAsync,
                 ApptDateStepAsync,
                 ConfirmStepAsync,
-                FinalStepAsync,
+                FinalStepAsync,    
             }));
 
             // The initial child Dialog to run.
@@ -50,10 +60,25 @@ namespace Microsoft.BotBuilderSamples.Dialogs
             return await stepContext.NextAsync(AppointmentDt.studentId, cancellationToken);
         }
 
+        private async Task<DialogTurnResult> StudentEmailStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        {
+
+            var AppointmentDt = (Appointment)stepContext.Options;
+            AppointmentDt.studentId = (string)stepContext.Result;
+
+            if (AppointmentDt.email == null)
+            {
+                var promptMessage = MessageFactory.Text(StudentEmailStepMsgText, StudentEmailStepMsgText, InputHints.ExpectingInput);
+                return await stepContext.PromptAsync(nameof(TextPrompt), new PromptOptions { Prompt = promptMessage }, cancellationToken);
+            }
+
+            return await stepContext.NextAsync(AppointmentDt.email, cancellationToken);
+        }
+
         private async Task<DialogTurnResult> PurposeStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             var AppointmentDt = (Appointment)stepContext.Options;
-            AppointmentDt.studentId = (string)stepContext.Result;
+            AppointmentDt.email = (string)stepContext.Result;
 
             if (AppointmentDt.purpose == null)
             {
@@ -115,7 +140,12 @@ namespace Microsoft.BotBuilderSamples.Dialogs
             if ((bool)stepContext.Result)
             {
                 var AppointmentDt = (Appointment)stepContext.Options;
-
+                var timeProperty = new TimexProperty(AppointmentDt.Date);
+                var ApptDateMsg = timeProperty.ToNaturalLanguage(DateTime.Now);
+                var body = $"Appointment booked with {AppointmentDt.professor} on {ApptDateMsg}";
+                var sub = "Appointment Confirmation";
+                if (DateTime.Parse(AppointmentDt.Date) > DateTime.Now)
+                    _externalServices.sendEmail(AppointmentDt.email, sub, body);
                 return await stepContext.EndDialogAsync(AppointmentDt, cancellationToken);
             }
 
@@ -127,5 +157,6 @@ namespace Microsoft.BotBuilderSamples.Dialogs
             var timexProperty = new TimexProperty(timex);
             return !timexProperty.Types.Contains(Constants.TimexTypes.Definite);
         }
+
     }
 }

@@ -11,5 +11,6 @@ namespace CoreBot.Models
         public string Date { get; set; }
         public string studentId { get; set; }
         public string professor { get; set; }
+        public string email { get; set; }
     }
 }

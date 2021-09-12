@@ -7,6 +7,9 @@ using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Schema;
 using Microsoft.Recognizers.Text.DataTypes.TimexExpression;
+using CoreBot;
+using System.Net.Mail;
+using System.Net;
 
 namespace Microsoft.BotBuilderSamples.Dialogs
 {
@@ -94,6 +97,8 @@ namespace Microsoft.BotBuilderSamples.Dialogs
             {
                 var bookingDetails = (BookingDetails)stepContext.Options;
 
+                
+
                 return await stepContext.EndDialogAsync(bookingDetails, cancellationToken);
             }
 
@@ -105,5 +110,7 @@ namespace Microsoft.BotBuilderSamples.Dialogs
             var timexProperty = new TimexProperty(timex);
             return !timexProperty.Types.Contains(Constants.TimexTypes.Definite);
         }
+
+       
     }
 }

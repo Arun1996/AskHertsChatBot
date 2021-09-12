@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+using CoreBot.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Bot.Builder;
@@ -42,6 +43,9 @@ namespace Microsoft.BotBuilderSamples
 
             // Register the AppointmentDialog.
             services.AddSingleton<AppointmentDialog>();
+
+            // Register the ExternalServices.
+            services.AddSingleton<ExternalServices>();
 
             // Register the StudentLetterDialog.
             services.AddSingleton<StudentLetterDialog>();
